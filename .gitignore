@@ -6,3 +6,4 @@ next-env.d.ts
 .env.local
 data/db.json
 init/.realm_name
+data/db.backup.json
