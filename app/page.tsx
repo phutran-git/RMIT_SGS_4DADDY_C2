@@ -24,25 +24,31 @@ export default function Home() {
 
   return (
     <>
-      <section className="hero">
-        <div>
-          <div className="eyebrow">Community Language Data Trust</div>
+      <section className="hero hero-band">
+        <span className="hero-glyph" aria-hidden="true">ភាសា</span>
+        <div className="hero-copy">
+          <div className="hero-pill">Community Language Data Trust</div>
           <h1>
             Our grandmothers&apos; stories can teach AI our language, <em>on our terms</em>.
           </h1>
-          <p className="muted">
+          <p className="hero-lede">
             Minority-language speakers donate stories, proverbs and transcripts to build translation AI for
             languages Big Tech ignores. Every story is encrypted in the speaker&apos;s browser. An AI lab can only
             read a corpus after the community&apos;s elder council approves it. Neither the platform operator, nor any
             single administrator, nor the AI holds a key that gets around that rule.
           </p>
+          <div className="lang-chips">
+            <span className="lang-chip coral"><span className="khmer">ខ្មែរក្រោម</span> Khmer Krom</span>
+            <span className="lang-chip saffron">Hmong</span>
+            <span className="lang-chip green">Cham</span>
+          </div>
           {!authenticated && (
-            <button className="btn clay" onClick={() => login()}>
+            <button className="btn saffron" onClick={() => login()}>
               Sign in with Tide to begin
             </button>
           )}
         </div>
-        <div className="card teal">
+        <div className="card glass">
           <h3>How the trust works</h3>
           <ol className="flow">
             <li><b>Contributors</b> write in their language. A privacy guard strips IDs, then the story is encrypted under a <i>write-only</i> corpus policy.</li>
