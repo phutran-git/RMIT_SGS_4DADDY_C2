@@ -37,7 +37,7 @@ Watch for three moments: a story is encrypted and the operator sees only ciphert
 |---|---|
 | ![Council signs corpus policies](docs/screenshots/council-policies-signed.png) Council signs the write and read policies (Tide network signature) | ![Tide enclave approval](docs/screenshots/tide-enclave-approval.png) Approval happens in the Tide enclave, not in our app |
 | ![Lab without access](docs/screenshots/lab-not-granted.png) Lab without approval: breach simulation refused by the network | ![Governed change request](docs/screenshots/qea-grant-pending.png) Granting `corpus-reader` is a change request needing council approval |
-| ![Lab decrypts](docs/screenshots/lab-decrypted.png) After approval: the lab decrypts in its own browser | |
+| ![Lab decrypts](docs/screenshots/lab-decrypted.png) After approval: the lab decrypts in its own browser | ![AI training pairs](docs/screenshots/ai-training-pairs.png) GenAI pipeline turns the decrypted, consented stories into parallel training pairs |
 
 ## What we verified end to end (local TideCloak + live Tide network, 22 Oct 2026)
 
