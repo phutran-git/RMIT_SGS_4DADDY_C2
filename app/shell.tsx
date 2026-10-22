@@ -3,7 +3,8 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import type { ReactNode } from 'react'
-import { useTideCloak } from '@tidecloak/nextjs'
+import { useTideCloak } from '@/lib/tide/sdk'
+import { TIDE_SIMULATED } from '@/lib/tide/mode'
 
 const LINKS = [
   { href: '/contribute', label: 'Contribute' },
@@ -58,6 +59,12 @@ export default function Shell({ children }: { children: ReactNode }) {
           )}
         </div>
       </header>
+      {TIDE_SIMULATED && (
+        <div className="planc">
+          <b>Plan C</b> · Tide&apos;s network is overloaded, so TideCloak&apos;s sign-in, roles, council approvals and the network&apos;s
+          encrypt/decrypt checks are <b>simulated</b>. Stories are still encrypted in the browser.
+        </div>
+      )}
       <main>{children}</main>
     </>
   )

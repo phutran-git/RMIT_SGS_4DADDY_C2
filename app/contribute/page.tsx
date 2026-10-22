@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { useTideCloak } from '@tidecloak/nextjs'
+import { useTideCloak } from '@/lib/tide/sdk'
 import { CORPORA, corpusById } from '@/lib/corpora'
 import { scrub } from '@/lib/privacy'
 import { useApi, explainTideError, short } from '@/lib/tide/client'

@@ -3,6 +3,8 @@ import { Models } from '@tideorg/js'
 import { getCaller, unauthorized, forbidden, CONTRIBUTOR_ROLE, READER_ROLE } from '@/lib/auth'
 import { readDb, updateDb, audit } from '@/lib/store'
 import { corpusById } from '@/lib/corpora'
+import { TIDE_SIMULATED } from '@/lib/tide/mode'
+import { readPolicy } from '@/lib/tide/sim-server'
 
 // Which role each kind of policy must name. Write = every contributor (a drop box),
 // read = only holders of corpus-reader, which the council grants by governed change request.
@@ -42,7 +44,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'bad corpus or access' }, { status: 400 })
   }
   try {
-    const p = Models.Policy.from(Uint8Array.from(Buffer.from(policyB64, 'base64')))
+    // Plan C: a policy signed by the simulated network carries the same fields.
+    const p = TIDE_SIMULATED ? simParsed(policyB64) : Models.Policy.from(Uint8Array.from(Buffer.from(policyB64, 'base64')))
     const param = (k: string) => String(p.params.entries.get(k) ?? '')
     const expectedRoles = access === 'read' ? '["_tide_decryptor"]' : '["_tide_encryptor"]'
     if (
@@ -72,4 +75,11 @@ export async function POST(req: NextRequest) {
     audit(db, caller.name, 'policy.sign', `${access} policy for ${corpusId} -> role ${SUBJECT_FOR[access as 'read' | 'write']}`)
   })
   return NextResponse.json({ ok: true })
+}
+
+function simParsed(b64: string) {
+  const p = readPolicy(b64)
+  if (!p) throw new Error('unsigned')
+  const { sig, ...fields } = p
+  return { contractId: p.contractId, signature: sig, params: { entries: new Map(Object.entries(fields)) } }
 }

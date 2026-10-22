@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import type { ReactNode } from 'react'
 import { Fraunces, Be_Vietnam_Pro } from 'next/font/google'
-import { TideCloakProvider } from '@tidecloak/nextjs'
+import { TideCloakProvider } from '@/lib/tide/sdk'
 import tcConfig from '../tidecloak.json'
 import Shell from './shell'
 import './globals.css'

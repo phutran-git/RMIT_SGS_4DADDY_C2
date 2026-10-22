@@ -1,7 +1,7 @@
 'use client'
 // Browser helpers: authenticated fetch to our API, and readable messages for Tide refusals.
 import { useCallback } from 'react'
-import { useTideCloak } from '@tidecloak/nextjs'
+import { useTideCloak } from '@/lib/tide/sdk'
 
 export function useApi() {
   const { getToken, token } = useTideCloak()
@@ -28,6 +28,9 @@ export function explainTideError(err: unknown): string {
     e = e.cause
   }
   const all = parts.join(' | ') || String(err)
+  // Plan C: refusals from the simulated network.
+  const sim = all.match(/\[TIDE-ORK-SIM\] ([^|]+)/)
+  if (sim) return `Refused by the Tide network (simulated): ${sim[1].trim()}`
   const known = [
     'role not found',
     'not found in list of roles',

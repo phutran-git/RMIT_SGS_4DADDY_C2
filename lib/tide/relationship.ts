@@ -21,6 +21,8 @@
 import { IAMService } from "@tidecloak/js";
 import { Models } from "@tideorg/js";
 import { PolicySignRequest } from "heimdall-tide";
+import { TIDE_SIMULATED } from "./mode";
+import { simSignPolicy, simEncrypt, simDecrypt } from "./sim-client";
 
 // Fixed by the contract. Changing any of these makes the network refuse the policy or the request.
 export const RELATIONSHIP_CONTRACT_ID = "RelationshipAttestation:1";
@@ -141,6 +143,7 @@ export function buildRelationshipPolicy(grant: RelationshipGrant) {
  * Returns the signed policy as base64. Store it keyed by user and record.
  */
 export async function signRelationshipPolicy(grant: RelationshipGrant, adminPolicy: Uint8Array): Promise<string> {
+  if (TIDE_SIMULATED) return simSignPolicy(grant); // Plan C
   const policy = buildRelationshipPolicy(grant);
 
   // The contract is built into the ORK, so the request carries the policy and nothing else.
@@ -171,11 +174,13 @@ export async function signRelationshipPolicy(grant: RelationshipGrant, adminPoli
 // Errors from the network are thrown unchanged: show them, do not replace them.
 
 export async function encryptForRecord(data: string, recordId: string, signedPolicyB64: string): Promise<string> {
+  if (TIDE_SIMULATED) return simEncrypt(data, recordId, signedPolicyB64); // Plan C
   const [out] = await IAMService.doEncrypt([{ data, tags: [recordId] }], fromBase64(signedPolicyB64));
   return typeof out === "string" ? out : toBase64(out);
 }
 
 export async function decryptForRecord(encrypted: string, recordId: string, signedPolicyB64: string): Promise<string> {
+  if (TIDE_SIMULATED) return simDecrypt(encrypted, recordId, signedPolicyB64); // Plan C
   const [out] = await IAMService.doDecrypt([{ encrypted, tags: [recordId] }], fromBase64(signedPolicyB64));
   return typeof out === "string" ? out : new TextDecoder().decode(out);
 }

@@ -138,3 +138,6 @@ th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--line
 th { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
 .story { border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; margin: 10px 0; background: #fff; }
 .native { font-size: 1.05rem; }
+
+.planc { background: #2a1a05; color: #fde7c2; font-size: 0.82rem; padding: 7px 28px; text-align: center; }
+.planc b { color: var(--saffron); }

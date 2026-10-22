@@ -50,6 +50,22 @@ Watch for three moments: a story is encrypted and the operator sees only ciphert
 | Grant `corpus-reader` and then `_tide_decryptor` | Each one is a `GRANT_ROLES` change request, `0/1` until the council approves it in the Tide enclave |
 | Approved lab opens the corpus | Decrypted in the browser |
 
+## Plan C: simulated TideCloak (default while Tide's network is overloaded)
+
+Tide's network is under heavy load, so, as the organisers allow, the app now runs by default against a **simulated TideCloak**. The live integration above is unchanged. Set `NEXT_PUBLIC_TIDE_MODE=live` to switch back to it.
+
+| Live TideCloak | Plan C simulation |
+|---|---|
+| Tide login | `/sim-login`: personas Ly (contributor), Elder Sơn and Elder Thạch (council), Mekong NLP Lab researcher. Tokens are HMAC-signed, and roles are looked up on the server on every request (`lib/tide/sim-server.ts`) |
+| Council signs policies in the Tide enclave | The council approves a confirmation ('Simulated Tide enclave'); `/api/sim/network` signs the policy, and only council members may sign |
+| `corpus-reader` grant = governed change request | **Council → Approve**: the grant takes effect only after **2 different elders** approve (`/api/sim/approvals`) |
+| Tide network checks every encrypt/decrypt | `/api/sim/network` releases a corpus key only if the signed policy names the corpus, grants the operation, and the caller holds the policy's role plus `_tide_encryptor` / `_tide_decryptor`. Refusals are logged in the transparency ledger |
+| Ciphertext only on the server | Same: stories are encrypted and decrypted in the browser (AES-GCM, WebCrypto). The app's database (`data/db.sim.json`) holds ciphertext only |
+
+**Honest limit:** in live mode no single server ever holds a corpus key (Tide's ORK nodes split it). In Plan C one stand-in process plays the network, so it holds the key. That is the part the simulation cannot reproduce.
+
+**Plan C demo:** `npm run dev` → Sign in as **Elder Sơn** → Council → sign the Khmer Krom write and read policies → sign in as **Ly** → Contribute → *use synthetic sample* → **Encrypt & contribute** (then *Try to read it back*: refused) → sign in as the **lab** → AI Lab → **Simulate a server breach** (refused) → **Send request to council** → **Elder Sơn** approves (1/2) → **Elder Thạch** approves (2/2) → lab: **refresh my roles** → **Open corpus** → **Build AI training pairs**. To start again from a clean slate, delete `data/db.sim.json`.
+
 ## Setup
 
 Requirements: Docker, Node.js 20.9+, and `curl` + `jq`. On Windows you also need Git Bash, plus `winget install jqlang.jq`.

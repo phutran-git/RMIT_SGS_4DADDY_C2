@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useTideCloak } from '@tidecloak/nextjs';
+import { useTideCloak } from '@/lib/tide/sdk';
 
 export default function RedirectPage() {
   const { authenticated, isInitializing, logout } = useTideCloak()

@@ -1,11 +1,12 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { useTideCloak } from '@tidecloak/nextjs'
+import { useTideCloak } from '@/lib/tide/sdk'
 import tcConfig from '../../tidecloak.json'
 import { CORPORA, corpusById } from '@/lib/corpora'
 import { useApi, explainTideError } from '@/lib/tide/client'
 import { signRelationshipPolicy } from '@/lib/tide/relationship'
+import { TIDE_SIMULATED } from '@/lib/tide/mode'
 
 interface PolicyMeta { corpusId: string; access: 'read' | 'write'; subjectId: string; grantedBy: string; createdAt: string }
 interface Req { id: string; corpusId: string; org: string; purpose: string; requesterName: string; createdAt: string }
@@ -24,6 +25,22 @@ export default function Council() {
   const consoleUrl = `${String(cfg['auth-server-url'] || 'http://localhost:8080').replace(/\/$/, '')}/admin/master/console/#/${cfg.realm || 'langtrust'}/users`
 
   const [adminPolicy, setAdminPolicy] = useState<Uint8Array | null>(null)
+  // Plan C: simulated change requests (council quorum) instead of the TideCloak admin console.
+  const [cr, setCr] = useState<{ quorum: number; requests: { id: string; approvals: string[]; granted: boolean }[] } | null>(null)
+  const loadCr = useCallback(async () => {
+    if (!TIDE_SIMULATED) return
+    const r = await api('/api/sim/approvals')
+    if (r.ok) setCr(await r.json())
+  }, [api])
+  useEffect(() => {
+    if (authenticated) loadCr()
+  }, [authenticated, loadCr])
+  const approve = async (requestId: string) => {
+    const r = await api('/api/sim/approvals', { method: 'POST', body: JSON.stringify({ requestId }) })
+    const j = await r.json()
+    setMsg(r.ok ? { kind: 'ok', text: j.granted ? 'Quorum reached: the lab now holds corpus-reader + _tide_decryptor.' : `Your approval is recorded (${j.approvals.length} of ${cr?.quorum}). Another council member must approve too.` } : { kind: 'bad', text: j.error })
+    loadCr()
+  }
 
   const load = useCallback(async () => {
     const [p, r] = await Promise.all([api('/api/policies'), api('/api/access-requests')])
@@ -120,7 +137,8 @@ export default function Council() {
           becomes a change request. It takes effect only when the required number of council members approve it in their Tide enclave.
           The platform operator can&apos;t skip that step: the lab&apos;s token, and every decryption, is checked by the Tide network.
         </p>
-        <p><a className="btn ghost small" href={consoleUrl} target="_blank" rel="noreferrer">Open TideCloak admin console ↗</a></p>
+        {!TIDE_SIMULATED && <p><a className="btn ghost small" href={consoleUrl} target="_blank" rel="noreferrer">Open TideCloak admin console ↗</a></p>}
+        {TIDE_SIMULATED && <p className="small"><span className="pill clay">Plan C</span> Simulated change request: the grant needs <b>{cr?.quorum ?? 2} different council members</b> to approve.</p>}
         {requests.length === 0 && <p className="small muted">No requests yet.</p>}
         <table>
           <tbody>
@@ -129,6 +147,15 @@ export default function Council() {
                 <td style={{ width: '28%' }}><b>{r.org}</b><br /><span className="small muted">user: {r.requesterName}</span></td>
                 <td><span className="pill">{corpusById(r.corpusId)?.language}</span> <span className="small">{r.purpose}</span></td>
                 <td className="small muted">{new Date(r.createdAt).toLocaleString()}</td>
+                {TIDE_SIMULATED && (() => {
+                  const c = cr?.requests.find((x) => x.id === r.id)
+                  if (c?.granted) return <td><span className="pill ok">granted · {c.approvals.join(' + ')}</span></td>
+                  return (
+                    <td>
+                      <button className="btn small clay" onClick={() => approve(r.id)}>Approve ({c?.approvals.length ?? 0}/{cr?.quorum ?? 2})</button>
+                    </td>
+                  )
+                })()}
               </tr>
             ))}
           </tbody>

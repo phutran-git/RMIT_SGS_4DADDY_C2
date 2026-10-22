@@ -3,6 +3,8 @@
 import { promises as fs } from 'fs'
 import path from 'path'
 import crypto from 'crypto'
+import { TIDE_SIMULATED } from './tide/mode'
+import { emptySim, type SimState } from './tide/sim-server'
 
 export interface Story {
   id: string
@@ -48,14 +50,16 @@ interface Db {
   policies: StoredPolicy[]
   accessRequests: AccessRequest[]
   audit: AuditEvent[]
+  sim: SimState
 }
 
-const DB_PATH = path.join(process.cwd(), 'data', 'db.json')
-const EMPTY: Db = { stories: [], policies: [], accessRequests: [], audit: [] }
+// Plan C keeps its simulated data apart from the live realm's data.
+const DB_PATH = path.join(process.cwd(), 'data', TIDE_SIMULATED ? 'db.sim.json' : 'db.json')
+const EMPTY: Db = { stories: [], policies: [], accessRequests: [], audit: [], sim: emptySim() }
 
 export async function readDb(): Promise<Db> {
   try {
-    return { ...EMPTY, ...JSON.parse(await fs.readFile(DB_PATH, 'utf8')) }
+    return { ...structuredClone(EMPTY), ...JSON.parse(await fs.readFile(DB_PATH, 'utf8')) }
   } catch {
     return structuredClone(EMPTY)
   }
