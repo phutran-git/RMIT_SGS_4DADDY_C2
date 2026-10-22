@@ -1,7 +1,7 @@
 """Builds the LangTrust demo video: slides (real screenshots + captions) + Windows TTS narration."""
 import json, subprocess, sys, wave
 from pathlib import Path
-from PIL import Image, ImageDraw, ImageFilter, ImageFont
+from PIL import Image, ImageDraw, ImageFilter, ImageFont, ImageOps
 import imageio_ffmpeg
 
 HERE = Path(__file__).parent  # screenshots go in tools/img; needs: pip install pillow imageio-ffmpeg; Windows TTS voice "Zira"
@@ -33,7 +33,7 @@ REFUSAL = [
 SCENES = [
     {"kind": "title",
      "say": "LangTrust. A community language data trust, built with TideCloak."},
-    {"kind": "shot", "img": "landing.jpg", "step": "1 · The possibility",
+    {"kind": "langs", "step": "1 · The possibility", "title": "The stories AI is missing",
      "caption": "Minority-language communities pool their stories to train translation AI, on their own terms.",
      "say": "Vietnam has dozens of minority languages, like Khmer Krom, Hmong and Cham, that translation AI barely speaks. "
             "Their speakers hold the stories that could fix that. LangTrust lets communities pool those stories to train AI, on their own terms."},
@@ -91,15 +91,57 @@ def wrap(draw, text, fnt, width):
     return lines
 
 
-def base(step=None):
-    im = Image.new("RGB", (W, H), PAPER)
+# --- bold look (matches the title cards and the new landing page) ---
+DEEP, MID, GLOW = "#071c1b", "#0e3b36", "#1f7a66"
+SAFFRON, CORAL, CREAM, SOFT = "#f2a93b", "#e2603f", "#fff4e2", "#cfe6de"
+BLACK_F, BOLD_F = "seguibl.ttf", "segoeuib.ttf"
+KHMER = IMG / "NotoSerifKhmer.ttf"
+
+
+def grad_bg(inner=GLOW, mid=MID, outer=DEEP, cx=0.78, cy=0.28):
+    size = int(W * 1.8)
+    g = Image.radial_gradient("L").resize((size, size), Image.BILINEAR)
+    x0, y0 = int(size / 2 - cx * W), int(size / 2 - cy * H)
+    g = g.crop((x0, y0, x0 + W, y0 + H))
+    return ImageOps.colorize(g, black=inner, mid=mid, white=outer).convert("RGB")
+
+
+def strip(im):
     d = ImageDraw.Draw(im)
-    d.text((80, 50), "Lang", font=font(SERIF_B, 40), fill=TEAL)
-    d.text((80 + d.textlength("Lang", font=font(SERIF_B, 40)), 50), "Trust", font=font(SERIF_B, 40), fill=CLAY)
-    d.text((W - 80, 62), "Built with TideCloak", font=font(SANS, 26), fill=MUTED, anchor="ra")
+    stops = [(0, (242, 169, 59)), (0.5, (226, 96, 63)), (1, (31, 122, 102))]
+    for x in range(W):
+        t = x / (W - 1)
+        (a, ca), (b, cb) = (stops[0], stops[1]) if t <= 0.5 else (stops[1], stops[2])
+        k = (t - a) / (b - a)
+        d.line([(x, H - 14), (x, H)], fill=tuple(int(ca[j] + (cb[j] - ca[j]) * k) for j in range(3)))
+
+
+def glyph(im, size=330, xy=(W - 90, 40), alpha=60):
+    if not KHMER.exists():
+        return
+    layer = Image.new("RGBA", im.size, (0, 0, 0, 0))
+    ImageDraw.Draw(layer).text(xy, "ភាសា", font=ImageFont.truetype(str(KHMER), size), fill=(242, 169, 59, alpha), anchor="ra")
+    im.paste(layer, (0, 0), layer)
+
+
+def pill(d, xy, text, fnt, bg=SAFFRON, fg="#2a1a05"):
+    x, y = xy
+    w = d.textlength(text, font=fnt)
+    d.rounded_rectangle((x, y, x + w + 44, y + 50), 25, fill=bg)
+    d.text((x + 22, y + 25), text, font=fnt, fill=fg, anchor="lm")
+
+
+def base(step=None, bg=None):
+    im = bg or grad_bg()
+    d = ImageDraw.Draw(im)
+    f = font(BLACK_F, 40)
+    d.text((80, 44), "Lang", font=f, fill=CREAM)
+    d.text((80 + d.textlength("Lang", font=f), 44), "Trust", font=f, fill=SAFFRON)
+    d.text((W - 80, 58), "Built with TideCloak", font=font(BOLD_F, 26), fill=SOFT, anchor="ra")
     if step:
-        d.text((80, 112), step.upper(), font=font(SANS_B, 26), fill=CLAY)
-    return im, d
+        pill(d, (80, 110), step.upper(), font(BLACK_F, 24))
+    strip(im)
+    return im, ImageDraw.Draw(im)
 
 
 def paste_shot(im, path, box):
@@ -108,66 +150,97 @@ def paste_shot(im, path, box):
     scale = min((x1 - x0) / shot.width, (y1 - y0) / shot.height)
     shot = shot.resize((int(shot.width * scale), int(shot.height * scale)), Image.LANCZOS)
     px, py = x0 + ((x1 - x0) - shot.width) // 2, y0 + ((y1 - y0) - shot.height) // 2
-    shadow = Image.new("RGBA", (shot.width + 40, shot.height + 40), (0, 0, 0, 0))
-    ImageDraw.Draw(shadow).rounded_rectangle((20, 20, shot.width + 20, shot.height + 20), 18, fill=(0, 0, 0, 60))
-    im.paste(shadow.filter(ImageFilter.GaussianBlur(12)), (px - 20, py - 12), shadow.filter(ImageFilter.GaussianBlur(12)))
+    glow = Image.new("RGBA", (shot.width + 80, shot.height + 80), (0, 0, 0, 0))
+    ImageDraw.Draw(glow).rounded_rectangle((40, 40, shot.width + 40, shot.height + 40), 22, fill=(242, 169, 59, 110))
+    glow = glow.filter(ImageFilter.GaussianBlur(22))
+    im.paste(glow, (px - 40, py - 30), glow)
     mask = Image.new("L", shot.size, 0)
-    ImageDraw.Draw(mask).rounded_rectangle((0, 0, shot.width, shot.height), 14, fill=255)
+    ImageDraw.Draw(mask).rounded_rectangle((0, 0, shot.width, shot.height), 18, fill=255)
     im.paste(shot, (px, py), mask)
-    ImageDraw.Draw(im).rounded_rectangle((px, py, px + shot.width, py + shot.height), 14, outline=LINE, width=2)
+    ImageDraw.Draw(im).rounded_rectangle((px, py, px + shot.width, py + shot.height), 18, outline=SAFFRON, width=3)
 
 
-def caption(im, d, text):
-    fnt = font(SANS_B, 36)
-    lines = wrap(d, text, fnt, W - 260)
+def caption(im, d, text, bg=SAFFRON, fg="#2a1a05"):
+    fnt = font(BLACK_F, 36)
+    lines = wrap(d, text, fnt, W - 300)
     h = 40 + 50 * len(lines)
-    d.rounded_rectangle((80, H - h - 50, W - 80, H - 50), 20, fill=TEAL)
+    d.rounded_rectangle((80, H - h - 52, W - 80, H - 52), 24, fill=bg)
     for i, ln in enumerate(lines):
-        d.text((W // 2, H - h - 50 + 22 + 50 * i), ln, font=fnt, fill="white", anchor="ma")
+        d.text((W // 2, H - h - 52 + 22 + 50 * i), ln, font=fnt, fill=fg, anchor="ma")
+
+
+def tile(im, box, c1, c2, label, fg):
+    x0, y0, x1, y1 = box
+    g = Image.linear_gradient("L").resize((x1 - x0, y1 - y0))
+    t = ImageOps.colorize(g, black=c1, white=c2).convert("RGB")
+    mask = Image.new("L", t.size, 0)
+    ImageDraw.Draw(mask).rounded_rectangle((0, 0, t.width, t.height), 30, fill=255)
+    im.paste(t, (x0, y0), mask)
+    ImageDraw.Draw(im).text((x0 + 44, y1 - 50), label, font=font(BLACK_F, 64), fill=fg, anchor="ls")
 
 
 def render(i, sc):
-    if sc["kind"] == "title":
-        im, d = base()
-        d.text((W // 2, 380), "LangTrust", font=font(SERIF_B, 150), fill=TEAL, anchor="mm")
-        d.text((W // 2, 520), "A community language data trust", font=font(SERIF, 56), fill=INK, anchor="mm")
-        d.text((W // 2, 600), "Minority-language stories train AI, and the community holds the keys", font=font(SANS, 38), fill=MUTED, anchor="mm")
-        d.rounded_rectangle((W // 2 - 360, 700, W // 2 + 360, 780), 40, fill=CLAY)
-        d.text((W // 2, 740), "Security × GenAI × Low-Resource Languages", font=font(SANS_B, 32), fill="white", anchor="mm")
-        d.text((W // 2, 900), "RMIT Hackathon 2026 · Challenge 2 (UNLOCKED) · built with TideCloak", font=font(SANS, 30), fill=MUTED, anchor="mm")
-    elif sc["kind"] == "shotlog":
-        im, d = base(sc["step"])
-        paste_shot(im, IMG / sc["img"], (100, 190, 1060, 830))
+    k = sc["kind"]
+    if k == "title":
+        im, d = base(bg=grad_bg(cx=0.75, cy=0.35))
+        glyph(im, size=280, xy=(W - 80, 20), alpha=70)
         d = ImageDraw.Draw(im)
-        d.rounded_rectangle((1100, 190, W - 80, 830), 20, fill="#1d2a2a")
-        d.text((1130, 215), "Tide network response (real output):", font=font(SANS_B, 28), fill="#f6b8a4")
-        y = 270
+        pill(d, (140, 250), "RMIT HACKATHON 2026 · CHALLENGE 2", font(BLACK_F, 26))
+        f = font(BLACK_F, 210)
+        d.text((130, 330), "Lang", font=f, fill=CREAM)
+        d.text((130 + d.textlength("Lang", font=f), 330), "Trust", font=f, fill=SAFFRON)
+        for j, ln in enumerate(wrap(d, "Minority-language stories train AI, and the community holds the keys.", font(BOLD_F, 46), 1300)):
+            d.text((140, 610 + 62 * j), ln, font=font(BOLD_F, 46), fill=SOFT)
+        d.text((140, 800), "Security × GenAI × Low-Resource Languages · built with TideCloak", font=font(BOLD_F, 32), fill=SAFFRON)
+    elif k == "langs":
+        im, d = base(sc["step"])
+        d.text((80, 190), sc["title"], font=font(BLACK_F, 70), fill=CREAM)
+        tw = (W - 160 - 2 * 40) // 3
+        for j, (lab, c1, c2, fg) in enumerate([("Khmer Krom", "#e2603f", "#b8371f", CREAM), ("Hmong", "#f7c04a", "#e89a1c", "#2a1a05"), ("Cham", "#2e8f78", "#12524a", CREAM)]):
+            tile(im, (80 + j * (tw + 40), 330, 80 + j * (tw + 40) + tw, 700), c1, c2, lab, fg)
+        d = ImageDraw.Draw(im)
+        caption(im, d, sc["caption"])
+    elif k == "shotlog":
+        im, d = base(sc["step"], bg=grad_bg(inner="#c2482b", mid="#6e1b0e", outer="#2a0c07", cx=0.2, cy=0.2))
+        paste_shot(im, IMG / sc["img"], (100, 190, 1060, 820))
+        d = ImageDraw.Draw(im)
+        d.rounded_rectangle((1100, 190, W - 80, 820), 24, fill="#12090a", outline=CORAL, width=3)
+        d.text((1130, 215), "Tide network response (real output):", font=font(BLACK_F, 28), fill="#ffb59c")
+        y = 272
         for ln in REFUSAL:
             for part in wrap(d, ln, font(MONO, 23), W - 80 - 1130 - 30):
-                d.text((1130, y), part, font=font(MONO, 23), fill="#9fd8cf" if not ln.startswith("TIDE") else "#f6b8a4"); y += 32
+                d.text((1130, y), part, font=font(MONO, 23), fill="#ffd9a8" if not ln.startswith("TIDE") else "#ff8a65"); y += 32
             y += 8
-        caption(im, d, sc["caption"])
-    elif sc["kind"] == "shot":
+        caption(im, d, sc["caption"], bg=CREAM, fg="#6e1b0e")
+    elif k == "shot":
         im, d = base(sc["step"])
-        paste_shot(im, IMG / sc["img"], (120, 170, W - 120, 830))
+        paste_shot(im, IMG / sc["img"], (140, 190, W - 140, 820))
         d = ImageDraw.Draw(im)
         caption(im, d, sc["caption"])
     else:
-        im, d = base(sc["step"])
-        d.text((80, 180), sc["title"], font=font(SERIF_B, 58), fill=INK)
-        y = 320
+        constraint = sc["step"].startswith("2")
+        bg = grad_bg(inner="#5a2316", mid="#2a1210", outer="#120a0a", cx=0.15, cy=0.85) if constraint else grad_bg(cx=0.2, cy=0.25)
+        im, d = base(sc["step"], bg=bg)
+        if sc["step"].startswith("4"):
+            glyph(im, size=300, xy=(W - 80, 150), alpha=50)
+            d = ImageDraw.Draw(im)
+        accent = CORAL if constraint else SAFFRON
+        y = 200
+        for ln in wrap(d, sc["title"], font(BLACK_F, 74), W - 220):
+            d.text((80, y), ln, font=font(BLACK_F, 74), fill=CREAM); y += 88
+        y += 40
         for b in sc["bullets"]:
-            lines = wrap(d, b, font(SANS, 42), W - 300)
-            d.ellipse((90, y + 16, 110, y + 36), fill=CLAY)
+            lines = wrap(d, b, font(BOLD_F, 42), W - 300)
+            d.rounded_rectangle((86, y + 14, 112, y + 40), 8, fill=accent)
             for ln in lines:
-                d.text((140, y), ln, font=font(SANS, 42), fill=INK); y += 58
-            y += 30
-        if sc["kind"] == "cipher":
-            d.rounded_rectangle((80, y + 20, W - 80, y + 330), 20, fill="#1d2a2a")
-            d.text((110, y + 45), "What the server stored (real output from our test run):", font=font(SANS_B, 30), fill="#9fd8cf")
-            cy = y + 100
-            for ln in wrap(d, " ".join(CIPHER[k:k + 80] for k in range(0, len(CIPHER), 80)), font(MONO, 30), W - 240):
-                if cy > H - 140: break
+                d.text((140, y), ln, font=font(BOLD_F, 42), fill=SOFT); y += 58
+            y += 28
+        if k == "cipher":
+            d.rounded_rectangle((80, y + 10, W - 80, min(H - 60, y + 320)), 24, fill="#04100f", outline=SAFFRON, width=3)
+            d.text((110, y + 35), "What the server stored (real output from our test run):", font=font(BLACK_F, 30), fill=SAFFRON)
+            cy = y + 92
+            for ln in wrap(d, " ".join(CIPHER[k2:k2 + 80] for k2 in range(0, len(CIPHER), 80)), font(MONO, 30), W - 240):
+                if cy > H - 110: break
                 d.text((110, cy), ln, font=font(MONO, 30), fill="#9fd8cf"); cy += 42
     p = OUT / f"s{i:02d}.png"
     im.save(p)
