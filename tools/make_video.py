@@ -61,7 +61,7 @@ SCENES = [
      "say": "Now imagine the operator goes rogue, and hands an AI lab the entire database and the decryption policy. "
             "The Tide network still refuses. Nineteen of twenty nodes said no, because the community never approved this lab."},
     {"kind": "shot", "img": "qea.png", "step": "3 · The prototype: the community decides",
-     "caption": "The lab's access is a TideCloak change request: 0 of 1 approvals until the council signs it.",
+     "caption": "The lab's access is a governed change request: it takes effect only when 2 council members approve.",
      "say": "So the lab asks. The council reviews its purpose, and grants access as a change request. "
             "It is quorum-enforced. No single admin, and not the platform, can approve it alone."},
     {"kind": "shot", "img": "decrypted.png", "step": "3 · The prototype: approved access",
@@ -205,7 +205,7 @@ def render(i, sc):
         paste_shot(im, IMG / sc["img"], (100, 190, 1060, 820))
         d = ImageDraw.Draw(im)
         d.rounded_rectangle((1100, 190, W - 80, 820), 24, fill="#12090a", outline=CORAL, width=3)
-        d.text((1130, 215), "Tide network response (real output):", font=font(BLACK_F, 28), fill="#ffb59c")
+        d.text((1130, 215), "Tide network response (real output, live run):", font=font(BLACK_F, 28), fill="#ffb59c")
         y = 272
         for ln in REFUSAL:
             for part in wrap(d, ln, font(MONO, 23), W - 80 - 1130 - 30):
